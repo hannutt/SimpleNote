@@ -12,6 +12,8 @@ import re
 
 import PyPDF2
 import pandas as pd
+import clipboard
+from bs4 import BeautifulSoup
 
 global currentFile
 currentFile = False
@@ -106,20 +108,11 @@ def timeAndDate(event=''):
 
 
 # luodaan funktiot, joiden avulla voi vaihtaa fonttia. font komennolla määritellään, mitä fonttia käytetään.
-def courier():
-    textbox.config(font='Courier')
 
 
-def arial():
-    textbox.config(font='Arial')
-
-
-def tahoma():
-    textbox.config(font='Tahoma')
-
-
-def system():
-    textbox.config(font='System')
+#Taustavärin vaihto, väri saadaan dropvarista eli pudotusvalikosta
+def changeColor(event=''):
+    textbox.config(bg=dropVar.get())
 
 
 def clear():
@@ -207,8 +200,16 @@ def checkText(event=''):
     for i in sentence:
         textbox.insert(INSERT,i.capitalize()+'. ',END)
 
+#html tiedoston luku, josta on ensin poistettu kaikki html-tägit
+def readhtml():
+    file = filedialog.askopenfilename()
+    f = open(file)
+    cleantext = BeautifulSoup(f,'lxml').text
+    textbox.insert(INSERT,cleantext,END)
+
 
 def readpdf():
+     
      f = filedialog.askopenfilename()
      pdfFileObj = open(f, 'rb')
      pdfReader = PyPDF2.PdfFileReader(pdfFileObj)
@@ -222,21 +223,87 @@ def readpdf():
      pdfFileObj.close()
 
 
-def readexcel():
+def excelrows():
+    f = filedialog.askopenfilename()
+    #uuden ikkunan, tekstien ja painikkeen määrittely
+    rowWindow = Toplevel(root)
+    rowlbl = Label(rowWindow,text='How many rows? ')
+    rows = Entry(rowWindow,width=5)
+    sheetlbl = Label(text='Type sheet name')
+    sheet = Entry(rowWindow)
+    
+    
+    rowlbl.pack()
+    rows.pack()
+    sheetlbl.pack()
+    sheet.pack()
+    
+    #huomaa että tämä funktio on määritelty excelrows funktion sisällä, muuten se ei toimi
+    #toivotulla tavalla
+    def readexcel():
+        
+        rowsInput =int(Entry.get(rows))
+        sheetInput = (Entry.get(sheet))
+        dfText = pd.read_excel(f,sheet_name=sheetInput,nrows=rowsInput)
+        textbox.insert(INSERT,dfText,END)
+    #uuden ikkunan painike määritellään funktion ulkopuolella
+    readBtn = Button(rowWindow,text='Read',command=readexcel)
+    readBtn.pack()  
 
-    dfText = pd.read_excel('sampledata.xlsx',sheet_name='Instructions',nrows=10)
-    textbox.insert(INSERT,dfText,END)
+def fontSizer():
+    fontWindow = Toplevel(root)
+    fontlbl = Label(fontWindow,text='Set size')
+    fsize = Entry(fontWindow,width=5)
+    #FontSize = int(Entry.get(fsize))
+    #textbox.config(font='Courier',size=FontSize)
+    fontlbl.pack()
+    fsize.pack()
+    def setSize():
+        #tallennetaan muuttujiin menuvalikon boolean muuttjien true/false arvo
+        cour = fontCourier.get()
+        aria = fontArial.get()
+        taho = fontTahoma.get()
+        syst = fontSystem.get()
+        FontSize = int(Entry.get(fsize))
+        useCourier = Font(family='Courier',size=FontSize)
+        useArial = Font(family='Arial',size=FontSize)
+        useTahoma = Font(family='Tahoma',size=FontSize)
+        useSystem = Font(family='System',size=FontSize)
 
+        #jos muuttujan arvo on true, käytetään tiettyä fonttia
+        if cour:
+            textbox.config(font=useCourier)
+            fontWindow.destroy()
+        elif aria:
+            textbox.config(font=useArial)
+            fontWindow.destroy()
+        elif taho:
+            textbox.config(font=useTahoma)
+            fontWindow.destroy()
+        elif syst:
+            textbox.config(font=useSystem)
+            fontWindow.destroy()
+            
 
+    
+    setBtn = Button(fontWindow,text='Set size',command=setSize)
+    setBtn.pack()
 
-
-
-
-
+def copytext():
+    if copyAll.get() == 1:
+        #kopioidaan koko textboxin sisältö
+        copytxt = textbox.get('1.0',END)
+        clipboard.copy(copytxt)
+    elif copySelected.get() == 1:
+    
+        #kopioidaan vain maalattu osa tekstistä
+        copytxt = textbox.selection_get()
+        clipboard.copy(copytxt)
 
 
 
 root = Tk()
+root.geometry('700x700')
 # määritellään käyttöliittymäikkunan kooksi 250 * 250 pikseliä.
 root.configure(background='slate gray')  # määritellään ikkuna-komponentin taustaväri.
 root.title('SimpleNote')  # annetaan ikkunassa näkyvä otsikko.
@@ -245,8 +312,13 @@ frame1 = Frame(root)
 frame2 = Frame(root)
 frame3 = Frame(root)
 frame4 = Frame(root)
+frame5 = Frame(root)
+frame6 = Frame(root)
+
 frame2.configure(background='slate gray')
 frame4.configure(background='slate gray')
+frame5.configure(background='slate gray')
+frame6.configure(background='slate gray')
 
 canvas = Canvas(frame3, bg='white', height=55, width=55)
 
@@ -281,12 +353,16 @@ funcmenu.add_command(label='Remove underline', command=delUnderline)
 funcmenu.add_command(label='Clear textbox', command=clear)
 funcmenu.add_command(label='redo', command=redoTxt)
 
+#boolean muuttujan menubarin checkboxeille
+fontCourier = BooleanVar()
+fontArial = BooleanVar()
+fontTahoma = BooleanVar()
+fontSystem = BooleanVar()
 menubar.add_cascade(label='Fonts', menu=fontmenu)
-
-fontmenu.add_command(label='Courier', command=courier)
-fontmenu.add_command(label='Arial', command=arial)
-fontmenu.add_command(label='Tahoma', command=tahoma)
-fontmenu.add_command(label='System', command=system)
+fontmenu.add_checkbutton(label='Courier', variable=fontCourier, command=fontSizer)
+fontmenu.add_checkbutton(label='Arial', variable=fontArial, command=fontSizer)
+fontmenu.add_checkbutton(label='Tahoma', variable=fontTahoma, command=fontSizer)
+fontmenu.add_checkbutton(label='System', variable = fontSystem, command=fontSizer)
 fontmenu.add_command(label='Choose font color', command=colorTxt)
 
 menubar.add_cascade(label='Align text', menu=formmenu)
@@ -296,17 +372,22 @@ formmenu.add_command(label='Left', command=txtLeft)
 
 menubar.add_cascade(label='Read PDF/xlsx',menu=pdfmenu)
 pdfmenu.add_command(label='Open PDF',command=readpdf)
-pdfmenu.add_command(label='Open Excel',command=readexcel)
+pdfmenu.add_command(label='Open Excel',command=excelrows)
+pdfmenu.add_command(label='Open HTML',command=readhtml)
+
 
 root.bind('<Control-o>', loadTxt)
 root.bind('<Control-s>', saveTxt)
 root.bind('<Control-t>', timeAndDate)
 root.bind('<Control-u>', underline)
 root.bind('<Control-h>',checkText)
+root.bind('<Control-l>',changeColor)
 
 
 # tallennetaan muuttujaan georgia fontti koossa 11, jota käytetään ohjelman otsikossa.
 titlefont = Font(family='Segoe Print', size=11)
+lblfont = Font(family='Segoe Print', size=8)
+
 
 scrollbar = Scrollbar(frame1)  # luodaan rullauspalkki ohjelmaan.
 scrollbar.pack(side=RIGHT, fill=Y)  # asemoidaan rullauspalkki oikealle, fill komennolla kerrotaan rullaussuunta.
@@ -320,29 +401,51 @@ firstLetter = StringVar()
 search = Entry(frame4,textvariable=firstLetter)
 firstLetter.trace('w',firstUpper)
 # luodaan tekstikentta niminen tekstilaatikko, width ja height komennoilla määritellään sen koko.
-textbox = Text(frame1, width=100, height=20, yscrollcommand=scrollbar.set, undo=True)
+textbox = Text(frame1, width=80, height=20, yscrollcommand=scrollbar.set, undo=True)
 scrollbar.config(command=textbox.yview)
 downpart = Label(frame2, background='slate gray')
 timedBtn = Button(frame2, text=' Enable timed save', command=timedSave)
 distimedBtn = Button(frame2, text='Disable timed save', command=disTimedSave)
 srcBtn=Button(frame4,text='Search',command=findTxt)
 
+copyAll = IntVar()
+all = Checkbutton(frame5,text='Copy all', variable=copyAll)
+copySelectedBtn = Button(frame5,text='Copy',font=lblfont, command=copytext)
+
+copySelected = IntVar()
+selected = Checkbutton(frame5,text='Copy selected text', variable=copySelected,)
+copyBtn = Button(frame5,text='Copy',font=lblfont, command=copytext)
+
+
 seconds = [5, 10, 15, 20, 25, 30]
 setTime = ttk.Combobox(frame2, width=5, values=seconds)
 
+#pudotusvalikko taustavärin vaihtoon
+dropVar = StringVar()
+dropVar.set('Select background color and  ctrl+l')
+drop = OptionMenu(frame6,dropVar,'blue','red','white','gray')
+#lbl = Label(root,text='').pack()
+
 name.pack(pady=4, padx=4)
+frame6.pack()
+drop.pack(pady=4, padx=4,side=RIGHT)
 frame3.pack()
 canvas.pack()
 # kuvan lisäys/koon määroitys canvas-komponenttiin
-canvas.create_image(10, 10, anchor=NW, image=noteImage)
+canvas.create_image(8, 8, anchor=NW, image=noteImage)
+
 frame4.pack()
 frame1.pack()
 # setFont.pack()
 
 search.pack(pady=5,padx=5,side=LEFT)
 srcBtn.pack(pady=5,padx=5,side=RIGHT)
+frame5.pack(side=LEFT)
+all.pack()
+selected.pack()
+copyBtn.pack(side=LEFT,pady=4, padx=4)
 textbox.pack(pady=4, padx=4)
-frame2.pack()
+frame2.pack(side=RIGHT)
 timedBtn.pack()
 setTime.pack()
 distimedBtn.pack()
