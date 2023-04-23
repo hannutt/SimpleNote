@@ -14,6 +14,7 @@ import PyPDF2
 import pandas as pd
 import clipboard
 from bs4 import BeautifulSoup
+import speech_recognition as sr
 
 global currentFile
 currentFile = False
@@ -165,8 +166,8 @@ def colorTxt():
     textbox.config(fg=myColor)
 
 
-def redoTxt():
-    textbox.edit_redo
+def redoTxt(event=''):
+    textbox.edit_redo()
 
 
 #funktio tekstin hakuun
@@ -222,6 +223,33 @@ def readpdf():
         # closing the pdf file object
      pdfFileObj.close()
 
+#Tässä määritellään uusi ikkuna ja sen komponentit
+def csvrows():
+        
+        f = filedialog.askopenfilename()
+        csvRowWindow = Toplevel(root)
+        fromlbl = Label(csvRowWindow,text='start from:')
+        fromRow = Entry(csvRowWindow,width=5)
+        tolbl = Label(csvRowWindow,text='To:')
+        toRow = Entry(csvRowWindow,width=5)
+       
+        fromlbl.pack()
+        fromRow.pack()
+        tolbl.pack()
+        toRow.pack()
+       
+       
+       #tässä määritellään csv-tiedoston lukemiseen tarvittavat asiat
+        def readcsv():
+            startrow = int(Entry.get(fromRow))
+            stoprow = int(Entry.get(toRow))
+            df = pd.read_csv(f,delim_whitespace = True)
+            textbox.insert(INSERT,df.iloc[startrow:stoprow],END)
+        csvReadBtn=Button(csvRowWindow,text='Read',command=readcsv)
+        csvReadBtn.pack()
+
+        
+
 
 def excelrows():
     f = filedialog.askopenfilename()
@@ -229,14 +257,18 @@ def excelrows():
     rowWindow = Toplevel(root)
     rowlbl = Label(rowWindow,text='How many rows? ')
     rows = Entry(rowWindow,width=5)
-    sheetlbl = Label(text='Type sheet name')
+    sheetlbl = Label(rowWindow, text='Type sheet name')
     sheet = Entry(rowWindow)
+    AllVar = IntVar()
+    ReadAll = Checkbutton(rowWindow,text='Read all', variable=AllVar,background='slate gray')
+        
     
     
     rowlbl.pack()
     rows.pack()
     sheetlbl.pack()
     sheet.pack()
+    ReadAll.pack()
     
     #huomaa että tämä funktio on määritelty excelrows funktion sisällä, muuten se ei toimi
     #toivotulla tavalla
@@ -254,9 +286,12 @@ def fontSizer():
     fontWindow = Toplevel(root)
     fontlbl = Label(fontWindow,text='Set size')
     fsize = Entry(fontWindow,width=5)
+    selVar = IntVar()
+    selOnly = Checkbutton(fontWindow,text='Selected only',variable=selVar)
     #FontSize = int(Entry.get(fsize))
     #textbox.config(font='Courier',size=FontSize)
     fontlbl.pack()
+    selOnly.pack()
     fsize.pack()
     def setSize():
         #tallennetaan muuttujiin menuvalikon boolean muuttjien true/false arvo
@@ -270,17 +305,42 @@ def fontSizer():
         useTahoma = Font(family='Tahoma',size=FontSize)
         useSystem = Font(family='System',size=FontSize)
 
-        #jos muuttujan arvo on true, käytetään tiettyä fonttia
-        if cour:
+        #jos cour ja checkbox on valittu 
+        if cour and selVar.get()==1 and textbox.tag_ranges('sel'):
+            #lisätään thisOne niminen tagi, johon tallennetaan maalatusta merkkijonon kohdasta
+            #merkit ensimmäisesti viimeiseen
+            textbox.tag_add('thisOne',SEL_FIRST,SEL_LAST)
+            #tagin sisällä oleva merkkijono saa fontikseen muuttujan sisältämän fontin
+            textbox.tag_configure('thisOne',font=useCourier)
+        else:
             textbox.config(font=useCourier)
             fontWindow.destroy()
-        elif aria:
+
+         
+        if aria and selVar.get()==1 and textbox.tag_ranges('sel'):
+             textbox.tag_add('thisOne',SEL_FIRST,SEL_LAST)
+            
+             textbox.tag_configure('thisOne',font=useArial)
+        else:
+
             textbox.config(font=useArial)
             fontWindow.destroy()
-        elif taho:
+
+        if taho and selVar.get()==1 and textbox.tag_ranges('sel'):
+
+            textbox.tag_add('thisOne',SEL_FIRST,SEL_LAST)
+            textbox.tag_configure('thisOne',font=useTahoma)
+    
+        else:
             textbox.config(font=useTahoma)
             fontWindow.destroy()
-        elif syst:
+
+        if syst and selVar.get()==1 and textbox.tag_ranges('sel'):
+            textbox.tag_add('thisOne',SEL_FIRST,SEL_LAST)
+            textbox.tag_configure('thisOne',font=useSystem)
+
+        else:
+
             textbox.config(font=useSystem)
             fontWindow.destroy()
             
@@ -300,6 +360,42 @@ def copytext():
         copytxt = textbox.selection_get()
         clipboard.copy(copytxt)
 
+#tämä laskee merkkien määrän
+def countChars():
+    content = textbox.get('1.0',END)
+    #ei lasketa välilyöntejä, ainaostaan merkit.splitillä jokainen merkki lisätään taulukkoon
+    #omaksi alkiokseen
+    total = sum(map(len,(content.split())))
+    #muutetaan tulos merkkijonoksi, että voidaan yhdistää total length teksti ja tulos widgetissä
+    totalstr = str(total)
+    #lisätään tulos charlbl label-widgettiin
+    charlbl.config(text='Total length: '+totalstr)
+
+def speechToTxt():
+    r = sr.Recognizer()
+    with sr.Microphone() as source:
+        
+        audioText = r.listen(source,timeout=5)
+        #audiodata täytyy tallentaa tavalliseen muuttujaan, että se näkyy
+        #tekstinä textbox widgetissä. timeoutilla määritellään mikrofonin kuunteluaika
+        audioStr=r.recognize_google(audioText)
+        
+        textbox.insert(INSERT,audioStr,END)
+
+#funktio ottaa parametrina enterin painalluksen ja tulostaa textboxin kulloisenkin
+#indeksinumeron (rivinumeron) rowbox widgettiin.
+def getrow(event):
+    index = textbox.index(INSERT)
+    row = index.split(".")[0]
+    rowbox.insert(INSERT,row,END)
+    rowbox.insert(INSERT,'\n',END)
+    #rivilaskenta toteutetaan aina enterin painalluksesta, kutsutaan samassa funktiossa
+    #myös merkkienlasku funtiota, jolloin päivittyy samalla kertaa rivimäärä ja merkkimäärä.
+    countChars()
+    
+def keyRel(event2):
+    countChars()
+        
 
 
 root = Tk()
@@ -314,12 +410,14 @@ frame3 = Frame(root)
 frame4 = Frame(root)
 frame5 = Frame(root)
 frame6 = Frame(root)
+frame7 = Frame(root)
+frame8 = Frame(root)
 
 frame2.configure(background='slate gray')
 frame4.configure(background='slate gray')
 frame5.configure(background='slate gray')
 frame6.configure(background='slate gray')
-
+frame7.configure(background='slate gray')
 canvas = Canvas(frame3, bg='white', height=55, width=55)
 
 noteImage = PhotoImage(file='notes.png')
@@ -352,6 +450,7 @@ funcmenu.add_command(label='Underline text', command=underline, accelerator='Ctr
 funcmenu.add_command(label='Remove underline', command=delUnderline)
 funcmenu.add_command(label='Clear textbox', command=clear)
 funcmenu.add_command(label='redo', command=redoTxt)
+funcmenu.add_command(label='Count characters', command=countChars,accelerator='Ctrl+M')
 
 #boolean muuttujan menubarin checkboxeille
 fontCourier = BooleanVar()
@@ -373,6 +472,7 @@ formmenu.add_command(label='Left', command=txtLeft)
 menubar.add_cascade(label='Read PDF/xlsx',menu=pdfmenu)
 pdfmenu.add_command(label='Open PDF',command=readpdf)
 pdfmenu.add_command(label='Open Excel',command=excelrows)
+pdfmenu.add_command(label='Open CSV',command=csvrows)
 pdfmenu.add_command(label='Open HTML',command=readhtml)
 
 
@@ -382,6 +482,8 @@ root.bind('<Control-t>', timeAndDate)
 root.bind('<Control-u>', underline)
 root.bind('<Control-h>',checkText)
 root.bind('<Control-l>',changeColor)
+#root.bind('<Control-m>',countChars)
+root.bind('<Control-r>',redoTxt)
 
 
 # tallennetaan muuttujaan georgia fontti koossa 11, jota käytetään ohjelman otsikossa.
@@ -397,28 +499,40 @@ scrollbar.pack(side=RIGHT, fill=Y)  # asemoidaan rullauspalkki oikealle, fill ko
 name = Label(root, text='Simple Notepad', background='white smoke', font=titlefont, relief='solid')
 #3 firstletter ja firstleter.trace + textvariable tarvitaan että voidaan automaattisesti
 #muuttaa search entryyn syötetyn merkkijonon ensimmäinen kirjain isoksi kirjaimeksi.
+charlbl = Label(root,background='slate gray')
 firstLetter = StringVar()
 search = Entry(frame4,textvariable=firstLetter)
 firstLetter.trace('w',firstUpper)
 # luodaan tekstikentta niminen tekstilaatikko, width ja height komennoilla määritellään sen koko.
 textbox = Text(frame1, width=80, height=20, yscrollcommand=scrollbar.set, undo=True)
+#bindataan enter ja getrow funktio
+textbox.bind("<Return>",getrow)
+#bindaus, aina kun jokin näppäin kutsutaan keyRel funkiota, keyrel kutsuu
+#puolestaan countchar funktiota, joka laskee merkkien.tällä bindauksella
+#saadaan realiaikainen merkkimäärän päivitys
+textbox.bind('<KeyRelease>',keyRel)
+#textbox.bind('<Return>',countChars)
+rowbox = Text(frame1,width=2,background='gray')
 scrollbar.config(command=textbox.yview)
 downpart = Label(frame2, background='slate gray')
 timedBtn = Button(frame2, text=' Enable timed save', command=timedSave)
 distimedBtn = Button(frame2, text='Disable timed save', command=disTimedSave)
 srcBtn=Button(frame4,text='Search',command=findTxt)
+speechBtn = Button(frame7, text='speech to text',command=speechToTxt)
 
 copyAll = IntVar()
-all = Checkbutton(frame5,text='Copy all', variable=copyAll)
-copySelectedBtn = Button(frame5,text='Copy',font=lblfont, command=copytext)
+all = Checkbutton(frame5,text='Copy all text', variable=copyAll,background='slate gray')
+
 
 copySelected = IntVar()
-selected = Checkbutton(frame5,text='Copy selected text', variable=copySelected,)
-copyBtn = Button(frame5,text='Copy',font=lblfont, command=copytext)
+selected = Checkbutton(frame5,text='Copy selected text', variable=copySelected,background='slate gray')
+copyBtn = Button(frame5,text='Copy', command=copytext)
 
 
 seconds = [5, 10, 15, 20, 25, 30]
 setTime = ttk.Combobox(frame2, width=5, values=seconds)
+
+setTimeOut = ttk.Combobox(frame7, width=5, values=seconds)
 
 #pudotusvalikko taustavärin vaihtoon
 dropVar = StringVar()
@@ -427,8 +541,8 @@ drop = OptionMenu(frame6,dropVar,'blue','red','white','gray')
 #lbl = Label(root,text='').pack()
 
 name.pack(pady=4, padx=4)
-frame6.pack()
-drop.pack(pady=4, padx=4,side=RIGHT)
+
+
 frame3.pack()
 canvas.pack()
 # kuvan lisäys/koon määroitys canvas-komponenttiin
@@ -436,6 +550,7 @@ canvas.create_image(8, 8, anchor=NW, image=noteImage)
 
 frame4.pack()
 frame1.pack()
+
 # setFont.pack()
 
 search.pack(pady=5,padx=5,side=LEFT)
@@ -443,12 +558,21 @@ srcBtn.pack(pady=5,padx=5,side=RIGHT)
 frame5.pack(side=LEFT)
 all.pack()
 selected.pack()
-copyBtn.pack(side=LEFT,pady=4, padx=4)
-textbox.pack(pady=4, padx=4)
+copyBtn.pack(side=LEFT,pady=2, padx=2)
+
+rowbox.pack(side=LEFT,pady=1,padx=1)
+textbox.pack(pady=2, padx=2)
+charlbl.pack()
+frame7.pack()
+setTimeOut.pack(side=LEFT,pady=2, padx=2)
+speechBtn.pack(side=RIGHT)
+
 frame2.pack(side=RIGHT)
 timedBtn.pack()
 setTime.pack()
 distimedBtn.pack()
+frame6.pack()
+drop.pack(side=BOTTOM,pady=4, padx=4)
 downpart.pack()
 
 mainloop()
