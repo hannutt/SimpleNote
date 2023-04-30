@@ -6,6 +6,8 @@ from tkinter.font import Font
 from tkinter import colorchooser
 import datetime
 
+from translate import Translator
+
 from threading import Timer
 import time
 import re
@@ -395,6 +397,21 @@ def getrow(event):
     
 def keyRel(event2):
     countChars()
+
+def DoTranslate():
+    selected = textbox.selection_get()
+    toLng = (Entry.get(setLng))
+    translator= Translator(to_lang=toLng)
+    translation = translator.translate(selected)
+    #indeksinumerointi alkaa numerosta 1.0 = ensimmäinen rivi
+    index = textbox.index(INSERT)
+    
+    #rivinvaihdon jälkeen row eli rivinumero kasvaa
+    textbox.insert(index,'\n',END)
+    #seuraava käännös näytetään aina uudella rivillä, koska row muuttuja arvo kasvaa
+    #jokaisen rivinvaihdon jälkeen.
+    textbox.insert(index,translation,END)
+ 
         
 
 
@@ -531,9 +548,12 @@ copyBtn = Button(frame5,text='Copy', command=copytext)
 
 seconds = [5, 10, 15, 20, 25, 30]
 setTime = ttk.Combobox(frame2, width=5, values=seconds)
-
 setTimeOut = ttk.Combobox(frame7, width=5, values=seconds)
 
+languages = ['german','spanish','french','chinese']
+setLng = ttk.Combobox(frame8,width=5,values=languages)
+setLng.current(1)
+translateBtn = Button (frame8,text='Translate',command=DoTranslate)
 #pudotusvalikko taustavärin vaihtoon
 dropVar = StringVar()
 dropVar.set('Select background color and  ctrl+l')
@@ -549,12 +569,16 @@ canvas.pack()
 canvas.create_image(8, 8, anchor=NW, image=noteImage)
 
 frame4.pack()
+frame8.pack()
 frame1.pack()
 
 # setFont.pack()
 
 search.pack(pady=5,padx=5,side=LEFT)
 srcBtn.pack(pady=5,padx=5,side=RIGHT)
+
+setLng.pack(side=LEFT)
+translateBtn.pack(side=RIGHT)
 frame5.pack(side=LEFT)
 all.pack()
 selected.pack()
