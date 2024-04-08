@@ -1,9 +1,23 @@
 # SimpleNote
-Notepad clone app with font changer,font size changer, text search and some spelling features. You can also read PDF, CSV Excel and HTML files without HTML tags with this app.(HTML files are readable without HTML-tags)
+A lightweight notepad clone with additional features
 
-Other features:
+MAIN FEATURES:
 
--Translation of the text from English to German, Spanish and French. 
-More language options coming later.
--speech to text using the computer's microphone. For now only in English, more options coming later
+Text alignment with a mouse click. you can align the text to the left, right or center.
+
+Speech to text using the computer's microphone. This is done with the google Gtts library. Speak into your computer's microphone, and the program will convert your speech into text and add it to the text field.
+Source: https://pypi.org/project/gTTS/
+
+Translation of the text from English to German, english to Spanish and english to French. For this I used the translation library created by Terry Yin. Source: https://pypi.org/project/translate/
+
+Read other file types
+You can read html, csv, excel and pdf files. in html files, the program can remove html tags and display only the text.
+
+
+
+Smaller features
+Row counter.
+Token counter.
+Text search.
+Font changer, font size changer and font color changer.
 
